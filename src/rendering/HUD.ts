@@ -1,0 +1,150 @@
+import { CONFIG } from '../core/GameConfig.ts';
+import { clamp } from '../utils/math.ts';
+
+interface Bar {
+  fill: HTMLDivElement;
+  value: HTMLDivElement;
+  wrap: HTMLDivElement;
+}
+
+export interface HUDState {
+  health: number;
+  sanity: number;
+  stress: number;
+  sprintEnergy: number;
+  sprintReady: boolean;
+  wallet: number;
+  metresRemaining: number;
+  elapsed: number;
+  gastro: boolean;
+}
+
+/**
+ * The HUD builds and owns every one of its own elements. Nothing else in the
+ * game touches its DOM - callers just hand it a snapshot of the run each frame.
+ */
+export class HUD {
+  private root: HTMLDivElement;
+  private health: Bar;
+  private sanity: Bar;
+  private stress: Bar;
+  private sprint: Bar;
+  private distanceEl: HTMLDivElement;
+  private walletEl: HTMLDivElement;
+  private timerEl: HTMLDivElement;
+  private statusEl: HTMLDivElement;
+
+  constructor(container: HTMLElement) {
+    this.root = document.createElement('div');
+    this.root.style.cssText =
+      'position:absolute;inset:0;pointer-events:none;z-index:13;display:none;' +
+      'font-family:system-ui,-apple-system,sans-serif;color:#fff;';
+    container.appendChild(this.root);
+
+    // Left column: the four meters.
+    const left = document.createElement('div');
+    left.style.cssText = 'position:absolute;top:14px;left:16px;width:230px;';
+    this.root.appendChild(left);
+
+    this.health = this.makeBar(left, 'Health', '#ff5252', '#5d1414');
+    this.sanity = this.makeBar(left, 'Sanity', '#ba68c8', '#3b1a44');
+    this.stress = this.makeBar(left, 'Ambient Noise Stress', '#ffa726', '#4d2d00');
+    this.sprint = this.makeBar(left, 'Sprint Energy', '#40c4ff', '#0d3548');
+
+    // Right column: distance, wallet, timer.
+    const right = document.createElement('div');
+    right.style.cssText =
+      'position:absolute;top:14px;right:16px;text-align:right;' +
+      'text-shadow:0 2px 6px rgba(0,0,0,0.75);';
+    this.root.appendChild(right);
+
+    this.distanceEl = document.createElement('div');
+    this.distanceEl.style.cssText = 'font-size:30px;font-weight:900;letter-spacing:-0.5px;';
+    right.appendChild(this.distanceEl);
+
+    const goalNote = document.createElement('div');
+    goalNote.textContent = 'to HSR Layout Entry Gate';
+    goalNote.style.cssText = 'font-size:12px;opacity:0.75;margin-bottom:8px;';
+    right.appendChild(goalNote);
+
+    this.walletEl = document.createElement('div');
+    this.walletEl.style.cssText = 'font-size:19px;font-weight:700;color:#ffd54f;';
+    right.appendChild(this.walletEl);
+
+    this.timerEl = document.createElement('div');
+    this.timerEl.style.cssText = 'font-size:14px;opacity:0.8;margin-top:4px;';
+    right.appendChild(this.timerEl);
+
+    // Centre-bottom status line for debuffs and warnings.
+    this.statusEl = document.createElement('div');
+    this.statusEl.style.cssText =
+      'position:absolute;bottom:86px;left:50%;transform:translateX(-50%);font-size:16px;' +
+      'font-weight:800;text-shadow:0 2px 6px rgba(0,0,0,0.85);text-align:center;line-height:1.5;';
+    this.root.appendChild(this.statusEl);
+  }
+
+  private makeBar(parent: HTMLElement, label: string, color: string, track: string): Bar {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:9px;';
+
+    const head = document.createElement('div');
+    head.style.cssText =
+      'display:flex;justify-content:space-between;font-size:11px;font-weight:700;' +
+      'letter-spacing:0.6px;text-transform:uppercase;opacity:0.9;margin-bottom:3px;' +
+      'text-shadow:0 1px 3px rgba(0,0,0,0.9);';
+
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('div');
+    head.append(name, value);
+
+    const bar = document.createElement('div');
+    bar.style.cssText =
+      `height:11px;border-radius:6px;background:${track};overflow:hidden;` +
+      'box-shadow:inset 0 1px 3px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.12);';
+
+    const fill = document.createElement('div');
+    fill.style.cssText =
+      `height:100%;width:100%;background:${color};border-radius:6px;` +
+      'transition:width 0.08s linear;';
+    bar.appendChild(fill);
+
+    wrap.append(head, bar);
+    parent.appendChild(wrap);
+    return { fill, value, wrap };
+  }
+
+  private setBar(bar: Bar, ratio: number, text: string): void {
+    bar.fill.style.width = `${clamp(ratio, 0, 1) * 100}%`;
+    bar.value.textContent = text;
+  }
+
+  show(visible: boolean): void {
+    this.root.style.display = visible ? 'block' : 'none';
+  }
+
+  update(s: HUDState): void {
+    this.setBar(this.health, s.health / CONFIG.nitesh.maxHealth, `${Math.ceil(s.health)}`);
+    this.setBar(this.sanity, s.sanity / CONFIG.nitesh.maxSanity, `${Math.ceil(s.sanity)}`);
+    this.setBar(this.stress, s.stress / 100, `${Math.round(s.stress)}%`);
+    this.setBar(this.sprint, s.sprintEnergy, s.sprintReady ? 'READY' : '...');
+
+    // The stress bar goes red and pulses once it is doing damage.
+    const maxed = s.stress >= 100;
+    this.stress.fill.style.background = maxed ? '#ff1744' : '#ffa726';
+    this.stress.wrap.style.animation = maxed ? 'hud-pulse 0.45s infinite' : 'none';
+
+    this.sprint.fill.style.background = s.sprintReady ? '#40c4ff' : '#546e7a';
+
+    this.distanceEl.textContent = `${s.metresRemaining} m`;
+    this.walletEl.textContent = `₹${s.wallet.toLocaleString('en-IN')}`;
+    const mins = Math.floor(s.elapsed / 60);
+    const secs = Math.floor(s.elapsed % 60);
+    this.timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    const lines: string[] = [];
+    if (maxed) lines.push('<span style="color:#ff1744">TOO MUCH HONKING — GET OUT OF THE TRAFFIC!</span>');
+    if (s.gastro) lines.push('<span style="color:#66bb6a">🤢 Gastro Debuff — half speed</span>');
+    this.statusEl.innerHTML = lines.join('<br>');
+  }
+}

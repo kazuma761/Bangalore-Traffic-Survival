@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Nitesh's Commute — Bangalore</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      canvas { display: block; touch-action: none; }
+      #game-container { width: 100%; height: 100%; position: relative; }
+      #ui-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+      #ui-overlay > * { pointer-events: auto; }
+
+      @keyframes hud-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+      .screen {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; z-index: 100;
+        font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 24px;
+      }
+      #main-menu { background: linear-gradient(150deg, #1b2735 0%, #243b55 55%, #0f3460 100%); }
+      #main-menu h1 { font-size: clamp(30px, 7vw, 54px); font-weight: 900; color: #fff; line-height: 1.05; }
+      #main-menu .subtitle { font-size: clamp(14px, 3vw, 19px); color: #ffd54f; margin: 10px 0 26px; font-weight: 600; }
+
+      .brief {
+        max-width: 620px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px; padding: 16px 20px; margin-bottom: 26px; text-align: left;
+        color: rgba(255,255,255,0.86); font-size: 13.5px; line-height: 1.75;
+      }
+      .brief b { color: #fff; }
+      .brief .row { display: flex; gap: 10px; }
+      .brief .row span:first-child { flex: 0 0 26px; text-align: center; }
+
+      button.primary {
+        padding: 15px 58px; font-size: 21px; font-weight: 800; border: none; border-radius: 50px;
+        background: linear-gradient(135deg, #e91e63, #ff5722); color: #fff; cursor: pointer;
+        font-family: inherit; transition: transform 0.15s; box-shadow: 0 6px 22px rgba(233,30,99,0.4);
+      }
+      button.primary:hover { transform: scale(1.04); }
+      #restart-btn { background: linear-gradient(135deg, #43a047, #1b5e20); box-shadow: 0 6px 22px rgba(67,160,71,0.4); }
+
+      .controls-hint { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 16px; line-height: 1.7; }
+      kbd {
+        background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 4px; padding: 1px 6px; font-family: inherit; font-size: 12px; color: #fff;
+      }
+
+      #game-over { display: none; background: rgba(6,10,16,0.9); backdrop-filter: blur(4px); }
+      #go-title { font-size: clamp(26px, 6vw, 40px); font-weight: 900; margin-bottom: 12px; }
+      #go-cause { font-size: 16px; color: #b0bec5; margin-bottom: 18px; }
+      #go-stats { font-size: 15px; color: #eceff1; line-height: 2; margin-bottom: 28px; }
+
+      #sound-btn {
+        position: absolute; bottom: 16px; right: 16px; width: 44px; height: 44px;
+        border-radius: 50%; border: none; background: rgba(0,0,0,0.45); color: #fff;
+        font-size: 20px; cursor: pointer; z-index: 15;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="ui-overlay">
+        <!-- Main Menu -->
+        <div id="main-menu" class="screen">
+          <h1>Nitesh's<br />Commute</h1>
+          <div class="subtitle">Tech Park → HSR Layout Entry Gate · 1,500 m</div>
+          <div class="brief">
+            <div class="row"><span>🚕</span><span><b>White cabs &amp; SUVs</b> gridlock the lanes — a hit costs 40 health and shoves you back.</span></div>
+            <div class="row"><span>🛺</span><span><b>Auto-rickshaws</b> swerve to cut you off — 20 sanity and ₹300 gone.</span></div>
+            <div class="row"><span>🚌</span><span><b>BMTC buses</b> never stop for anyone. 90 damage. Do not test it.</span></div>
+            <div class="row"><span>🚧</span><span><b>Metro barricades</b> seal off lanes. Go around.</span></div>
+            <div class="row"><span>📢</span><span><b>Ambient Noise Stress</b> fills near traffic. Pinned at 100%, it drains sanity.</span></div>
+            <div class="row"><span>🍛</span><span><b>Street food</b> is a coin flip: full sanity, or food poisoning and half speed.</span></div>
+          </div>
+          <button id="play-btn" class="primary">START THE COMMUTE</button>
+          <div class="controls-hint">
+            <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys to move ·
+            <kbd>Space</kbd> for a Panicked Sprint<br />
+            On mobile: drag the left side to move, tap the right side to sprint
+          </div>
+        </div>
+
+        <!-- Game Over -->
+        <div id="game-over" class="screen">
+          <h2 id="go-title">Commute failed</h2>
+          <div id="go-cause"></div>
+          <div id="go-stats"></div>
+          <button id="restart-btn" class="primary">TRY AGAIN</button>
+        </div>
+
+        <button id="sound-btn">🔊</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+import { CONFIG } from '../core/GameConfig.ts';
+import type { Vehicle } from '../entities/Vehicle.ts';
+import type { Nitesh } from '../entities/Nitesh.ts';
+
+export interface HitReport {
+  kind: 'cab' | 'auto' | 'bus';
+  label: string;
+  healthLost: number;
+  sanityLost: number;
+  moneyLost: number;
+  x: number;
+  z: number;
+}
+
+/**
+ * Resolves Nitesh against traffic and applies each vehicle type's penalty.
+ * Autos hurt the wallet and the mind; cabs hurt and shove; buses end runs.
+ */
+export class CollisionSystem {
+  update(nitesh: Nitesh, vehicles: Vehicle[]): HitReport[] {
+    const hits: HitReport[] = [];
+    if (nitesh.isInvulnerable) return hits;
+
+    for (const v of vehicles) {
+      if (!v.overlapsCircle(nitesh.x, nitesh.z, nitesh.halfWidth)) continue;
+
+      if (v.kind === 'bus') {
+        nitesh.damage(CONFIG.damage.busHealth);
+        nitesh.knockBack(v.x, v.z);
+        hits.push({
+          kind: 'bus',
+          label: 'BMTC BUS!',
+          healthLost: CONFIG.damage.busHealth,
+          sanityLost: 0,
+          moneyLost: 0,
+          x: v.x,
+          z: v.z,
+        });
+      } else if (v.kind === 'auto') {
+        nitesh.drainSanity(CONFIG.damage.autoSanity);
+        const stolen = nitesh.stealMoney(CONFIG.damage.autoWalletTheft);
+        // Autos do not deal damage, but they still knock him off his line -
+        // graze() opens the immunity window so one auto cannot drain him dry.
+        nitesh.graze();
+        nitesh.knockBack(v.x, v.z);
+        hits.push({
+          kind: 'auto',
+          label: 'Auto cut you off!',
+          healthLost: 0,
+          sanityLost: CONFIG.damage.autoSanity,
+          moneyLost: stolen,
+          x: v.x,
+          z: v.z,
+        });
+      } else {
+        nitesh.damage(CONFIG.damage.cabHealth);
+        nitesh.knockBack(v.x, v.z);
+        hits.push({
+          kind: 'cab',
+          label: 'Hit by a cab!',
+          healthLost: CONFIG.damage.cabHealth,
+          sanityLost: 0,
+          moneyLost: 0,
+          x: v.x,
+          z: v.z,
+        });
+      }
+
+      // One hit per tick; the immunity window covers the rest of the cluster.
+      break;
+    }
+
+    return hits;
+  }
+}
