@@ -259,11 +259,12 @@ export class Game {
       if (hit.healthLost > 0) {
         this.floaters.spawn(`-${hit.healthLost} HP`, this.nitesh.x, this.nitesh.z, 'damage', 1.1);
       }
+      // Offset in both axes so the two numbers never sit on top of each other.
       if (hit.sanityLost > 0) {
-        this.floaters.spawn(`-${hit.sanityLost} Sanity`, this.nitesh.x - 2, this.nitesh.z, 'curse', 1.1);
+        this.floaters.spawn(`-${hit.sanityLost} Sanity`, this.nitesh.x - 5, this.nitesh.z - 1.5, 'curse', 1.1);
       }
       if (hit.moneyLost > 0) {
-        this.floaters.spawn(`-₹${hit.moneyLost}`, this.nitesh.x + 2, this.nitesh.z, 'money', 1.2);
+        this.floaters.spawn(`-₹${hit.moneyLost}`, this.nitesh.x + 5, this.nitesh.z + 1.5, 'money', 1.2);
         this.audio.playCoinLoss();
       }
       if (hit.kind === 'bus') this.audio.playBusHorn();
