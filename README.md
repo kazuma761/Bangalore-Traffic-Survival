@@ -10,6 +10,21 @@ BMTC buses will not brake for anyone, and the honking alone can break your mind.
 Built with Three.js + TypeScript + Vite. No asset files — every model and every sound is
 generated procedurally in code.
 
+![Nitesh weaving through two-way Bangalore traffic](docs/media/gameplay.gif)
+
+> *He quit his job. Now he just has to cross the road.*
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Main menu](docs/media/01-menu.png) | ![Story intro](docs/media/02-story.png) |
+| **The brief.** Eight lanes, 1,500 metres, and a list of everything that wants to stop you. | **The setup.** Six beats explaining why a man is walking down Sarjapur Road at 6:40 PM. |
+| ![Gridlock with the stress meter pinned](docs/media/03-gameplay.png) | ![Auto Anna taking his cut](docs/media/04-auto-anna.png) |
+| **Ambient Noise Stress at 100%.** A wrong-way BMTC bus (red beacon) squeezes past a metro barricade while sanity drains at 15/sec. | **Auto Anna.** *"Bega bega, late aagide!"* — 20 sanity and ₹300, gone in one swerve. |
+| ![The HSR Layout gate](docs/media/05-gate.png) | ![Win screen](docs/media/06-win.png) |
+| **47 metres to go**, wallet down to ₹0, and the horns still coming. | **Mane seride.** Kelsa illa, but mane ideyalla. |
+
 ## Controls
 
 | Input | Action |
