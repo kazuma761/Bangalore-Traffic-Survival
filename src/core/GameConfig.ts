@@ -26,9 +26,9 @@ export const CONFIG = {
     sprintMultiplier: 2,
     sprintDuration: 1.5,
     sprintCooldown: 4,
-    /** Gastro debuff halves speed for this long. */
-    gastroDuration: 5,
-    gastroMultiplier: 0.5,
+    /** Food poisoning halves speed for this long. */
+    poisonDuration: 5,
+    poisonMultiplier: 0.5,
     maxHealth: 100,
     maxSanity: 100,
     startingWallet: 2000,
@@ -43,7 +43,7 @@ export const CONFIG = {
     /** 120px on screen ~= 15 world units at the game's top-down zoom. */
     radius: 15,
     /** Stress percent gained per second, per vehicle inside the radius. */
-    fillPerVehicle: 7,
+    fillPerVehicle: 6,
     /** Stress percent lost per second when the road around him is clear. */
     decayPerSecond: 55,
     /** Sanity lost per second while the meter is pinned at 100%. */
@@ -59,12 +59,16 @@ export const CONFIG = {
     /** Seconds between spawn waves, tightening as Nitesh nears the goal. */
     waveIntervalStart: 2.4,
     waveIntervalEnd: 1.1,
-    cabsPerWave: [2, 4] as const,
+    cabsPerWave: [2, 3] as const,
     autoChance: 0.4,
     busChance: 0.18,
     /** Vehicles spawn this far ahead of Nitesh and despawn this far behind. */
     spawnAhead: 90,
     despawnBehind: 45,
+    /** Chance a spawned BMTC bus is barrelling the wrong way up its lane. */
+    wrongWayBusChance: 0.35,
+    /** Chance any given cab ignores its lane's flow and drives against it. */
+    wrongWayCabChance: 0.12,
   },
 
   damage: {

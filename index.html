@@ -24,7 +24,8 @@
       }
       #main-menu { background: linear-gradient(150deg, #1b2735 0%, #243b55 55%, #0f3460 100%); }
       #main-menu h1 { font-size: clamp(30px, 7vw, 54px); font-weight: 900; color: #fff; line-height: 1.05; }
-      #main-menu .subtitle { font-size: clamp(14px, 3vw, 19px); color: #ffd54f; margin: 10px 0 26px; font-weight: 600; }
+      #main-menu .subtitle { font-size: clamp(14px, 3vw, 19px); color: #ffd54f; margin: 10px 0 6px; font-weight: 600; }
+      .kannada-tag { font-size: clamp(12px, 2.6vw, 15px); color: #ff8a65; margin-bottom: 24px; font-weight: 600; letter-spacing: 0.3px; }
 
       .brief {
         max-width: 620px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.12);
@@ -68,19 +69,22 @@
         <div id="main-menu" class="screen">
           <h1>Nitesh's<br />Commute</h1>
           <div class="subtitle">Tech Park → HSR Layout Entry Gate · 1,500 m</div>
+          <div class="kannada-tag">ಮನೆ ಸೇರಬೇಕು · Mane serbeku, guru</div>
           <div class="brief">
-            <div class="row"><span>🚕</span><span><b>White cabs &amp; SUVs</b> gridlock the lanes — a hit costs 40 health and shoves you back.</span></div>
-            <div class="row"><span>🛺</span><span><b>Auto-rickshaws</b> swerve to cut you off — 20 sanity and ₹300 gone.</span></div>
-            <div class="row"><span>🚌</span><span><b>BMTC buses</b> never stop for anyone. 90 damage. Do not test it.</span></div>
+            <div class="row"><span>🛺</span><span><b>Auto Anna</b> veers across lanes to cut you off. No meter, no mercy — <b>−20 sanity, −₹300</b>.</span></div>
+            <div class="row"><span>🚕</span><span><b>White cabs &amp; SUVs</b> gridlock the lanes — a hit costs <b>40 health</b> and shoves you back.</span></div>
+            <div class="row"><span>🚌</span><span><b>BMTC buses</b> stop for nobody — <b>90 damage</b>. Some come up the <b>wrong side</b>. Those strobe red.</span></div>
+            <div class="row"><span>↕️</span><span>The road runs <b>both ways</b>. Traffic comes at you and overtakes you from behind.</span></div>
             <div class="row"><span>🚧</span><span><b>Metro barricades</b> seal off lanes. Go around.</span></div>
-            <div class="row"><span>📢</span><span><b>Ambient Noise Stress</b> fills near traffic. Pinned at 100%, it drains sanity.</span></div>
-            <div class="row"><span>🍛</span><span><b>Street food</b> is a coin flip: full sanity, or food poisoning and half speed.</span></div>
+            <div class="row"><span>📢</span><span><b>Ambient Noise Stress</b> fills near traffic. Pinned at 100%, tale kettoytu — sanity drains.</span></div>
+            <div class="row"><span>🍛</span><span><b>Street food</b> is a coin flip: sakkath, or <b>food poisoning</b> and half speed.</span></div>
           </div>
           <button id="play-btn" class="primary">START THE COMMUTE</button>
           <div class="controls-hint">
             <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys to move ·
             <kbd>Space</kbd> for a Panicked Sprint<br />
-            On mobile: drag the left side to move, tap the right side to sprint
+            On mobile: drag the left side to move, tap the right side to sprint<br />
+            <span style="opacity:0.75">Nodkondu hogi — watch where you walk.</span>
           </div>
         </div>
 

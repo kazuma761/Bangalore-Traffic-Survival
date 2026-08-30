@@ -16,7 +16,7 @@ export interface HUDState {
   wallet: number;
   metresRemaining: number;
   elapsed: number;
-  gastro: boolean;
+  poisoned: boolean;
 }
 
 /**
@@ -144,7 +144,7 @@ export class HUD {
 
     const lines: string[] = [];
     if (maxed) lines.push('<span style="color:#ff1744">TOO MUCH HONKING — GET OUT OF THE TRAFFIC!</span>');
-    if (s.gastro) lines.push('<span style="color:#66bb6a">🤢 Gastro Debuff — half speed</span>');
+    if (s.poisoned) lines.push('<span style="color:#66bb6a">🤢 FOOD POISONING — hotte kettoytu, half speed</span>');
     this.statusEl.innerHTML = lines.join('<br>');
   }
 }

@@ -1,4 +1,11 @@
 import { CONFIG } from '../core/GameConfig.ts';
+import {
+  AUTO_ANNA_LINES,
+  BUS_LINES,
+  CAB_HIT_LINES,
+  WRONG_WAY_LINES,
+  randomLine,
+} from '../core/Dialogue.ts';
 import type { Vehicle } from '../entities/Vehicle.ts';
 import type { Nitesh } from '../entities/Nitesh.ts';
 
@@ -29,7 +36,7 @@ export class CollisionSystem {
         nitesh.knockBack(v.x, v.z);
         hits.push({
           kind: 'bus',
-          label: 'BMTC BUS!',
+          label: randomLine(v.wrongWay ? WRONG_WAY_LINES : BUS_LINES),
           healthLost: CONFIG.damage.busHealth,
           sanityLost: 0,
           moneyLost: 0,
@@ -45,7 +52,7 @@ export class CollisionSystem {
         nitesh.knockBack(v.x, v.z);
         hits.push({
           kind: 'auto',
-          label: 'Auto cut you off!',
+          label: randomLine(AUTO_ANNA_LINES),
           healthLost: 0,
           sanityLost: CONFIG.damage.autoSanity,
           moneyLost: stolen,
@@ -57,7 +64,7 @@ export class CollisionSystem {
         nitesh.knockBack(v.x, v.z);
         hits.push({
           kind: 'cab',
-          label: 'Hit by a cab!',
+          label: randomLine(CAB_HIT_LINES),
           healthLost: CONFIG.damage.cabHealth,
           sanityLost: 0,
           moneyLost: 0,

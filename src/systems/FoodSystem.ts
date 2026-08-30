@@ -57,7 +57,7 @@ export class FoodSystem {
           nitesh.restoreSanity();
         } else {
           nitesh.damage(CONFIG.food.curseHealth);
-          nitesh.applyGastro();
+          nitesh.applyFoodPoisoning();
         }
       }
 

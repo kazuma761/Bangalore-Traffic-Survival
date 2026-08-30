@@ -1,11 +1,13 @@
 import { CONFIG } from '../core/GameConfig.ts';
-import type { Vehicle } from '../entities/Vehicle.ts';
+import type { Vehicle, VehicleKind } from '../entities/Vehicle.ts';
 import type { Nitesh } from '../entities/Nitesh.ts';
 import { clamp, distance2D } from '../utils/math.ts';
 
 export interface HonkEvent {
   x: number;
   z: number;
+  /** Which horn to play — an auto sounds nothing like a BMTC bus. */
+  kind: VehicleKind;
 }
 
 /**
@@ -30,7 +32,7 @@ export class HonkingSystem {
     for (const v of vehicles) {
       if (distance2D(nitesh.x, nitesh.z, v.x, v.z) > CONFIG.honking.radius) continue;
       inRadius++;
-      if (v.tryHonk()) honks.push({ x: v.x, z: v.z });
+      if (v.tryHonk()) honks.push({ x: v.x, z: v.z, kind: v.kind });
     }
 
     this.crowding = inRadius;

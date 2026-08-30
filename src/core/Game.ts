@@ -2,8 +2,15 @@ import * as THREE from 'three';
 import { GameLoop } from './GameLoop.ts';
 import { InputManager } from './InputManager.ts';
 import { AudioManager } from './AudioManager.ts';
-import { CONFIG, GOAL_LABEL } from './GameConfig.ts';
+import { CONFIG } from './GameConfig.ts';
 import { eventBus } from './EventBus.ts';
+import {
+  HONK_SOUNDS,
+  LOSE_LINES,
+  STRESS_LINES,
+  WIN_LINES,
+  randomLine,
+} from './Dialogue.ts';
 
 import { Nitesh } from '../entities/Nitesh.ts';
 import type { EntityContext } from '../entities/Entity.ts';
@@ -20,6 +27,7 @@ import { TopDownCamera } from '../rendering/TopDownCamera.ts';
 import { FloatingText } from '../rendering/FloatingText.ts';
 import { GoalArrow } from '../rendering/GoalArrow.ts';
 import { HUD } from '../rendering/HUD.ts';
+import { StoryScreen } from '../rendering/StoryScreen.ts';
 
 type Phase = 'menu' | 'running' | 'over';
 
@@ -49,6 +57,9 @@ export class Game {
   private hud!: HUD;
   private floaters!: FloatingText;
   private arrow!: GoalArrow;
+  private story!: StoryScreen;
+  /** Throttles the on-screen stress warning so it does not flicker. */
+  private stressWarnTimer = 0;
 
   private phase: Phase = 'menu';
 
@@ -71,6 +82,10 @@ export class Game {
     this.hud = new HUD(overlay);
     this.floaters = new FloatingText(overlay, this.cam);
     this.arrow = new GoalArrow(overlay, this.cam);
+    this.story = new StoryScreen(overlay);
+
+    // Picks up any real recordings in public/assets/audio; falls back to synth.
+    void this.audio.loadSamples(import.meta.env.BASE_URL);
 
     this.bindUI();
 
@@ -96,7 +111,11 @@ export class Game {
   }
 
   private bindUI(): void {
-    document.getElementById('play-btn')!.addEventListener('click', () => this.startRun());
+    document.getElementById('play-btn')!.addEventListener('click', () => {
+      document.getElementById('main-menu')!.style.display = 'none';
+      this.story.show(() => this.startRun());
+    });
+    // Retries skip the intro — you already know why he is out here.
     document.getElementById('restart-btn')!.addEventListener('click', () => this.startRun());
     document.getElementById('sound-btn')!.addEventListener('click', (e) => {
       const on = this.audio.toggle();
@@ -129,6 +148,9 @@ export class Game {
     this.hud.show(true);
     this.arrow.show(true);
 
+    this.stressWarnTimer = 0;
+    this.audio.startAmbience();
+
     this.phase = 'running';
     // Handy for debugging a run from the devtools console.
     (window as unknown as { game: Game }).game = this;
@@ -158,7 +180,7 @@ export class Game {
     this.world?.dispose();
   }
 
-  private endRun(won: boolean, cause: string): void {
+  private endRun(won: boolean, title: string, cause: string): void {
     this.phase = 'over';
     this.hud.show(false);
     this.arrow.show(false);
@@ -168,7 +190,7 @@ export class Game {
 
     const panel = document.getElementById('game-over')!;
     panel.style.display = 'flex';
-    document.getElementById('go-title')!.textContent = won ? 'You made it home!' : 'Commute failed';
+    document.getElementById('go-title')!.textContent = title;
     document.getElementById('go-title')!.style.color = won ? '#69f0ae' : '#ff5252';
     document.getElementById('go-cause')!.textContent = cause;
 
@@ -208,8 +230,27 @@ export class Game {
 
     // 3. The honking sense.
     for (const honk of this.honking.update(dt, this.nitesh, this.traffic.vehicles)) {
-      this.floaters.spawn('HONK!', honk.x, honk.z, 'honk', 0.75);
-      this.audio.playHonk();
+      this.floaters.spawn(randomLine(HONK_SOUNDS), honk.x, honk.z, 'honk', 0.75);
+      if (honk.kind === 'auto') this.audio.playAutoHorn();
+      else if (honk.kind === 'bus') this.audio.playBusHorn();
+      else this.audio.playHonk();
+    }
+
+    // Road noise swells with the size of the cluster around him.
+    this.audio.setAmbienceIntensity(Math.min(1, this.honking.crowding / 5));
+
+    // A wrong-way bus deserves a shout before it arrives.
+    if (this.traffic.wrongWayAlert) {
+      const a = this.traffic.wrongWayAlert;
+      this.floaters.spawn('⚠ WRONG SIDE BUS!', a.x, a.z, 'damage', 2);
+      this.audio.playBusHorn();
+    }
+
+    // Standing warning while the meter is pinned.
+    this.stressWarnTimer -= dt;
+    if (this.honking.maxed && this.stressWarnTimer <= 0) {
+      this.stressWarnTimer = 2.4;
+      this.floaters.spawn(randomLine(STRESS_LINES), this.nitesh.x, this.nitesh.z - 4, 'curse', 1.6);
     }
 
     // 4. Traffic collisions.
@@ -253,7 +294,7 @@ export class Game {
       wallet: this.nitesh.wallet,
       metresRemaining: this.progress.metresRemaining,
       elapsed: this.progress.time,
-      gastro: this.nitesh.hasGastro,
+      poisoned: this.nitesh.hasFoodPoisoning,
     });
     this.arrow.update(this.nitesh.x, this.nitesh.z, 0, this.world.goalZ, this.progress.metresRemaining);
 
@@ -261,11 +302,11 @@ export class Game {
 
     // 7. Win / lose.
     if (this.progress.finished) {
-      this.endRun(true, `You reached the ${GOAL_LABEL}.`);
+      this.endRun(true, WIN_LINES.title, WIN_LINES.sub);
     } else if (this.nitesh.health <= 0) {
-      this.endRun(false, 'Health hit zero somewhere in the gridlock.');
+      this.endRun(false, LOSE_LINES.health.title, LOSE_LINES.health.sub);
     } else if (this.nitesh.sanity <= 0) {
-      this.endRun(false, 'The honking broke him. Sanity hit zero.');
+      this.endRun(false, LOSE_LINES.sanity.title, LOSE_LINES.sanity.sub);
     }
   }
 

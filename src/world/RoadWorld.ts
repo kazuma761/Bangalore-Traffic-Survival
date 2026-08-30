@@ -43,6 +43,15 @@ export class RoadWorld {
     return -this.halfWidth + this.laneWidth * (i + 0.5);
   }
 
+  /**
+   * Designated flow for lane `i`. The left half of the road carries oncoming
+   * traffic (+1, driving down-screen at Nitesh); the right half carries traffic
+   * heading the same way he is (-1, overtaking him from behind).
+   */
+  laneDirection(i: number): 1 | -1 {
+    return i < CONFIG.world.laneCount / 2 ? 1 : -1;
+  }
+
   get laneCount(): number {
     return CONFIG.world.laneCount;
   }
@@ -110,6 +119,47 @@ export class RoadWorld {
       edge.rotation.x = -Math.PI / 2;
       edge.position.set(x, 0.02, this.midZ);
       this.group.add(edge);
+    }
+
+    this.buildMedian();
+    this.buildLaneArrows(from, to);
+  }
+
+  /** Yellow twin line splitting the two directions of travel. */
+  private buildMedian(): void {
+    const yellow = new THREE.MeshBasicMaterial({ color: 0xffc107 });
+    for (const offset of [-0.35, 0.35]) {
+      const line = new THREE.Mesh(new THREE.PlaneGeometry(0.28, this.length), yellow);
+      line.rotation.x = -Math.PI / 2;
+      line.position.set(offset, 0.025, this.midZ);
+      this.group.add(line);
+    }
+  }
+
+  /** Painted arrows so each lane's designated direction is readable. */
+  private buildLaneArrows(from: number, to: number): void {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 1.6);
+    shape.lineTo(0.75, 0.1);
+    shape.lineTo(0.28, 0.1);
+    shape.lineTo(0.28, -1.6);
+    shape.lineTo(-0.28, -1.6);
+    shape.lineTo(-0.28, 0.1);
+    shape.lineTo(-0.75, 0.1);
+    shape.closePath();
+    const geom = new THREE.ShapeGeometry(shape);
+
+    for (let lane = 0; lane < CONFIG.world.laneCount; lane++) {
+      const dir = this.laneDirection(lane);
+      for (let z = from + 20; z < to; z += 40) {
+        const arrow = new THREE.Mesh(geom, mat);
+        arrow.rotation.x = -Math.PI / 2;
+        // Shape points toward +Y locally, which maps to -Z after the lie-down.
+        arrow.rotation.z = dir === 1 ? Math.PI : 0;
+        arrow.position.set(this.laneCenter(lane), 0.022, z);
+        this.group.add(arrow);
+      }
     }
   }
 

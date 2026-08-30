@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Entity } from './Entity.ts';
 import { CONFIG } from '../core/GameConfig.ts';
 import { coinFlip } from '../utils/math.ts';
+import { FOOD_BLESSING_LINES, FOOD_CURSE_LINES, randomLine } from '../core/Dialogue.ts';
 
 export type FoodKind = 'biryani' | 'coffee';
 
@@ -96,13 +97,8 @@ export class FoodPlate extends Entity {
   consume(): FoodOutcome {
     this.alive = false;
     if (coinFlip()) {
-      return {
-        blessing: true,
-        message: this.kind === 'coffee'
-          ? 'Perfectly spiced filter coffee!'
-          : 'Perfectly spiced biryani!',
-      };
+      return { blessing: true, message: randomLine(FOOD_BLESSING_LINES) };
     }
-    return { blessing: false, message: '🤢 Food Poisoning! Extreme Gut Damage!' };
+    return { blessing: false, message: randomLine(FOOD_CURSE_LINES) };
   }
 }

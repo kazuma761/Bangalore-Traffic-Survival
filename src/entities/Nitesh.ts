@@ -15,8 +15,8 @@ export class Nitesh extends Entity {
   /** Sprint state machine. */
   private sprintTimer = 0;
   private cooldownTimer = 0;
-  /** Gastro debuff timer from bad street food. */
-  private gastroTimer = 0;
+  /** Food-poisoning timer from bad street food. */
+  private poisonTimer = 0;
   /** Knockback impulse left over from a cab hit. */
   private knockTimer = 0;
   private knockDirX = 0;
@@ -78,8 +78,8 @@ export class Nitesh extends Entity {
   get sprintReady(): boolean {
     return this.sprintTimer <= 0 && this.cooldownTimer <= 0;
   }
-  get hasGastro(): boolean {
-    return this.gastroTimer > 0;
+  get hasFoodPoisoning(): boolean {
+    return this.poisonTimer > 0;
   }
   get isInvulnerable(): boolean {
     return this.invulnTimer > 0;
@@ -138,8 +138,8 @@ export class Nitesh extends Entity {
     return taken;
   }
 
-  applyGastro(): void {
-    this.gastroTimer = CONFIG.nitesh.gastroDuration;
+  applyFoodPoisoning(): void {
+    this.poisonTimer = CONFIG.nitesh.poisonDuration;
   }
 
   knockBack(fromX: number, fromZ: number): void {
@@ -160,7 +160,7 @@ export class Nitesh extends Entity {
   move(dt: number, moveX: number, moveZ: number, roadHalfWidth: number, minZ: number, maxZ: number): void {
     let speed = CONFIG.nitesh.baseSpeed;
     if (this.sprintTimer > 0) speed *= CONFIG.nitesh.sprintMultiplier;
-    if (this.gastroTimer > 0) speed *= CONFIG.nitesh.gastroMultiplier;
+    if (this.poisonTimer > 0) speed *= CONFIG.nitesh.poisonMultiplier;
 
     let vx = moveX * speed;
     let vz = moveZ * speed;
@@ -192,7 +192,7 @@ export class Nitesh extends Entity {
       this.cooldownTimer -= dt;
     }
 
-    if (this.gastroTimer > 0) this.gastroTimer -= dt;
+    if (this.poisonTimer > 0) this.poisonTimer -= dt;
     if (this.knockTimer > 0) this.knockTimer -= dt;
     if (this.invulnTimer > 0) this.invulnTimer -= dt;
 
@@ -200,7 +200,7 @@ export class Nitesh extends Entity {
     const mat = this.body.material as THREE.MeshStandardMaterial;
     if (this.invulnTimer > 0) {
       mat.color.setHex(Math.floor(this.invulnTimer * 20) % 2 === 0 ? 0xff5252 : 0x2979ff);
-    } else if (this.gastroTimer > 0) {
+    } else if (this.poisonTimer > 0) {
       mat.color.setHex(0x66bb6a);
     } else {
       mat.color.setHex(0x2979ff);
@@ -214,7 +214,7 @@ export class Nitesh extends Entity {
     this.wallet = CONFIG.nitesh.startingWallet;
     this.sprintTimer = 0;
     this.cooldownTimer = 0;
-    this.gastroTimer = 0;
+    this.poisonTimer = 0;
     this.knockTimer = 0;
     this.invulnTimer = 0;
   }

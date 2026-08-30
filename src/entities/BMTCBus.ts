@@ -12,6 +12,8 @@ export class BMTCBus extends Vehicle {
   readonly kind = 'bus' as const;
   private stripe!: THREE.Mesh;
   private flashPhase = 0;
+  /** Roof beacon, lit red only when this bus is on the wrong side. */
+  private beacon!: THREE.Mesh;
 
   constructor(x: number, z: number) {
     super(x, z);
@@ -58,6 +60,14 @@ export class BMTCBus extends Vehicle {
       this.mesh.add(l);
     }
 
+    // Roof beacon — dark on a normal bus, strobing red on a wrong-way one.
+    this.beacon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.42, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0x3a0000 })
+    );
+    this.beacon.position.set(0, 3.6, 0);
+    this.mesh.add(this.beacon);
+
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, flatShading: true });
     const wheelGeom = new THREE.CylinderGeometry(0.62, 0.62, 0.34, 10);
     for (const x of [-1.45, 1.45]) {
@@ -72,9 +82,15 @@ export class BMTCBus extends Vehicle {
 
   /** Never brakes, never swerves. That is the whole character. */
   protected drive(dt: number): void {
-    this.flashPhase += dt * 5;
+    this.flashPhase += dt * (this.wrongWay ? 11 : 5);
+    const on = Math.sin(this.flashPhase) > 0;
+
+    // A wrong-way bus strobes red so it reads as lethal from across the road.
     (this.stripe.material as THREE.MeshBasicMaterial).color.setHex(
-      Math.sin(this.flashPhase) > 0 ? 0xffd600 : 0xff6f00
+      this.wrongWay ? (on ? 0xff1744 : 0xffd600) : on ? 0xffd600 : 0xff6f00
+    );
+    (this.beacon.material as THREE.MeshBasicMaterial).color.setHex(
+      this.wrongWay ? (on ? 0xff1744 : 0x3a0000) : 0x3a0000
     );
   }
 }
