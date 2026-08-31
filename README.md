@@ -36,8 +36,9 @@ generated procedurally in code.
 
 ## The story
 
-Nitesh works at **Mayta**, in the tech park off Sarjapur Road. Eight years, same desk,
-same 9 PM logout. Today he resigned — laptop handed over, badge dropped at reception.
+Nitesh works at **Chaipay**, a Series-A startup on the fourth floor of a tech park off
+Sarjapur Road. Eighteen months, standing desk, same 11 PM logout. Today he resigned —
+laptop handed back, Slack access gone before the lift reached the ground floor.
 
 His flat is in **HSR Layout**, 1,500 metres away. On a normal day, a fifteen minute walk.
 But it is 6:40 PM on a weekday, and this is Bangalore.

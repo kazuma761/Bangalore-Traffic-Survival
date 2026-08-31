@@ -16,6 +16,7 @@ export class GameLoop {
   }
 
   start(): void {
+    if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
     this.accumulator = 0;
@@ -25,6 +26,24 @@ export class GameLoop {
   stop(): void {
     this.running = false;
     cancelAnimationFrame(this.rafId);
+  }
+
+  get isRunning(): boolean {
+    return this.running;
+  }
+
+  /**
+   * Restarts after a stop without replaying the gap. Backgrounding a tab on a
+   * phone stops rAF entirely; without resetting `lastTime` the first frame back
+   * carries the whole away-time, and the 100 ms frame cap then spends dozens of
+   * catch-up steps — Nitesh reappears several metres into traffic.
+   */
+  resume(): void {
+    if (this.running) return;
+    this.lastTime = performance.now();
+    this.accumulator = 0;
+    this.running = true;
+    this.rafId = requestAnimationFrame((t) => this.tick(t));
   }
 
   private tick(now: number): void {

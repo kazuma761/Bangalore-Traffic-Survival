@@ -78,12 +78,12 @@ export const STORY_TITLE = 'Kelsa mugithu. Mane seri, guru.';
 /** Beat-by-beat intro, shown one line at a time before the run. */
 export const STORY_BEATS: readonly { text: string; note?: string }[] = [
   {
-    text: 'Nitesh works at Mayta, in the tech park off Sarjapur Road.',
-    note: 'Eight years. Same desk. Same 9 PM logout.',
+    text: 'Nitesh works at Chaipay, a Series-A startup on the fourth floor of a tech park off Sarjapur Road.',
+    note: 'Eighteen months. Standing desk, three monitors, same 11 PM logout.',
   },
   {
     text: 'Today he resigned.',
-    note: 'Last laptop handover done. Badge dropped at reception.',
+    note: 'Laptop handed back at the co-working desk. Slack access gone before the lift reached the ground floor.',
   },
   {
     text: 'His flat is in HSR Layout. 1,500 metres away.',

@@ -98,8 +98,9 @@ export class TrafficSystem {
       this.add(auto);
     }
 
-    // The bus only shows up once the run is properly under way.
-    if (progress > 0.12 && Math.random() < CONFIG.traffic.busChance + progress * 0.12) {
+    // A short grace period off the start line, then buses are a constant threat.
+    if (progress > CONFIG.traffic.busAfterProgress &&
+        Math.random() < CONFIG.traffic.busChance + progress * 0.2) {
       const lane = randomInt(0, this.world.laneCount - 1);
       const flow = this.world.laneDirection(lane);
       const wrong = Math.random() < CONFIG.traffic.wrongWayBusChance;

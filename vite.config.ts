@@ -6,5 +6,16 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   build: {
     target: 'es2022',
+    rollupOptions: {
+      output: {
+        // Three.js is ~85% of the bundle and changes only when the dependency
+        // is upgraded. Splitting it out means a gameplay tweak ships a ~15 kB
+        // chunk instead of invalidating half a megabyte — which is the whole
+        // difference between an instant reload and another cold download on a
+        // phone. The vendor chunk keeps its content hash and stays in cache.
+        manualChunks: (id: string) =>
+          id.includes('node_modules/three') ? 'three' : undefined,
+      },
+    },
   },
 });

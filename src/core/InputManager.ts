@@ -1,15 +1,16 @@
 /**
- * Keyboard + touch input for Nitesh. Movement is 8-way and normalised;
- * the sprint is edge-triggered so holding Spacebar does not re-fire it.
+ * Keyboard input for Nitesh, plus the channel that `TouchControls` pushes into.
+ *
+ * Movement is 8-way and normalised; the sprint is edge-triggered so holding
+ * Spacebar does not re-fire it. Touch is deliberately NOT read from window
+ * events here — an invisible whole-screen drag handler steals presses meant for
+ * the menu, the sound button and the story screen. `TouchControls` owns its own
+ * elements and calls `setTouchVector()` / `queueSprint()`.
  */
 export class InputManager {
   private keys = new Set<string>();
-  private moveVector = { x: 0, z: 0 };
-  private touchActive = false;
-  private touchStartX = 0;
-  private touchStartY = 0;
-  private joystickSensitivity = 0.014;
-  /** Set on keydown, cleared by consumeSprint(). */
+  private touch = { x: 0, z: 0, active: false };
+  /** Set on keydown or a sprint tap, cleared by consumeSprint(). */
   private sprintQueued = false;
 
   constructor() {
@@ -29,44 +30,26 @@ export class InputManager {
       this.keys.delete(key === 'spacebar' ? ' ' : key);
     });
 
-    window.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-    window.addEventListener('pointermove', (e) => this.onPointerMove(e));
-    window.addEventListener('pointerup', () => this.onPointerUp());
-    window.addEventListener('pointercancel', () => this.onPointerUp());
+    // A phone that scrolls away mid-run leaves keys stuck down otherwise.
+    window.addEventListener('blur', () => this.reset());
   }
 
-  private onPointerDown(e: PointerEvent): void {
-    if (e.pointerType === 'touch' && e.clientX > window.innerWidth * 0.65) {
-      // Right side of a touchscreen is the sprint button.
-      this.sprintQueued = true;
-      return;
-    }
-    this.touchActive = true;
-    this.touchStartX = e.clientX;
-    this.touchStartY = e.clientY;
+  /** Called by TouchControls. `x`/`z` are already clamped to a unit circle. */
+  setTouchVector(x: number, z: number): void {
+    this.touch.x = x;
+    this.touch.z = z;
+    this.touch.active = x !== 0 || z !== 0;
   }
 
-  private onPointerMove(e: PointerEvent): void {
-    if (!this.touchActive) return;
-    const dx = (e.clientX - this.touchStartX) * this.joystickSensitivity;
-    const dy = (e.clientY - this.touchStartY) * this.joystickSensitivity;
-    const magnitude = Math.hypot(dx, dy);
-    if (magnitude > 1) {
-      this.moveVector.x = dx / magnitude;
-      this.moveVector.z = dy / magnitude;
-    } else if (magnitude > 0.12) {
-      this.moveVector.x = dx;
-      this.moveVector.z = dy;
-    } else {
-      this.moveVector.x = 0;
-      this.moveVector.z = 0;
-    }
+  clearTouch(): void {
+    this.touch.x = 0;
+    this.touch.z = 0;
+    this.touch.active = false;
   }
 
-  private onPointerUp(): void {
-    this.touchActive = false;
-    this.moveVector.x = 0;
-    this.moveVector.z = 0;
+  /** Called by TouchControls when the sprint pad is tapped. */
+  queueSprint(): void {
+    this.sprintQueued = true;
   }
 
   /** True once per Spacebar press / sprint tap. */
@@ -77,7 +60,7 @@ export class InputManager {
   }
 
   getMovement(): { x: number; z: number } {
-    if (this.touchActive) return { x: this.moveVector.x, z: this.moveVector.z };
+    if (this.touch.active) return { x: this.touch.x, z: this.touch.z };
 
     let kx = 0;
     let kz = 0;
@@ -97,6 +80,6 @@ export class InputManager {
   reset(): void {
     this.keys.clear();
     this.sprintQueued = false;
-    this.onPointerUp();
+    this.clearTouch();
   }
 }
