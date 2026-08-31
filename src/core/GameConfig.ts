@@ -61,12 +61,12 @@ export const CONFIG = {
     waveIntervalEnd: 1.1,
     cabsPerWave: [2, 3] as const,
     autoChance: 0.4,
-    busChance: 0.18,
+    busChance: 0.34,
     /** Vehicles spawn this far ahead of Nitesh and despawn this far behind. */
     spawnAhead: 90,
     despawnBehind: 45,
     /** Chance a spawned BMTC bus is barrelling the wrong way up its lane. */
-    wrongWayBusChance: 0.35,
+    wrongWayBusChance: 0.32,
     /** Chance any given cab ignores its lane's flow and drives against it. */
     wrongWayCabChance: 0.12,
   },
@@ -76,6 +76,17 @@ export const CONFIG = {
     autoSanity: 20,
     autoWalletTheft: 300,
     busHealth: 90,
+  },
+
+  pothole: {
+    /** Roughly one hole every this many units of road. Bangalore is generous. */
+    spacingZ: 26,
+    radius: [1.1, 2.2] as const,
+    /** Ankle-turn damage. Small, but they add up across 1,500 m. */
+    health: 8,
+    /** Stagger: he limps at this fraction of speed for `stagger` seconds. */
+    speedMultiplier: 0.45,
+    stagger: 1.4,
   },
 
   food: {

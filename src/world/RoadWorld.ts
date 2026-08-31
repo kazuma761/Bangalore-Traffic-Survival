@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG, GOAL_LABEL } from '../core/GameConfig.ts';
+import { QUALITY } from '../core/Quality.ts';
 import { randomChoice, randomRange } from '../utils/math.ts';
 import { disposeObject } from '../utils/dispose.ts';
 import {
@@ -85,7 +86,7 @@ export class RoadWorld {
 
     // Scattered patches of worse tarmac, because this is a Bangalore road.
     const patchMat = new THREE.MeshStandardMaterial({ color: 0x2a2e32, roughness: 1 });
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < Math.round(60 * QUALITY.sceneryDensity); i++) {
       const patch = new THREE.Mesh(new THREE.CircleGeometry(randomRange(0.8, 2.6), 8), patchMat);
       patch.rotation.x = -Math.PI / 2;
       patch.position.set(
@@ -178,7 +179,8 @@ export class RoadWorld {
     const from = this.goalZ - CONFIG.world.margin;
     const to = this.startZ + CONFIG.world.margin;
 
-    for (let z = from; z < to; z += randomRange(11, 18)) {
+    const spread = 1 / QUALITY.sceneryDensity;
+    for (let z = from; z < to; z += randomRange(11, 18) * spread) {
       for (const side of [-1, 1]) {
         const obj = randomChoice(factories)();
         // Assets were authored at hole-game scale; the commute is a person's scale.
@@ -189,7 +191,7 @@ export class RoadWorld {
       }
     }
 
-    for (let z = from; z < to; z += randomRange(14, 26)) {
+    for (let z = from; z < to; z += randomRange(14, 26) * spread) {
       for (const side of [-1, 1]) {
         const tree = (Math.random() < 0.35 ? createBanyanTree : createSmallTree)();
         tree.mesh.scale.setScalar(2.4);
@@ -198,7 +200,7 @@ export class RoadWorld {
       }
     }
 
-    for (let z = from; z < to; z += 20) {
+    for (let z = from; z < to; z += 20 * spread) {
       for (const side of [-1, 1]) {
         const lamp = createLampPost();
         lamp.mesh.scale.setScalar(3);

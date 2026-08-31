@@ -1,48 +1,54 @@
 /**
  * Sound for the commute.
  *
- * Two layers:
- *  1. Procedural Web Audio synthesis — always available, no downloads, works
- *     offline. Every horn here is hand-tuned rather than a generic beep.
- *  2. Optional real recordings. Drop files into `public/assets/audio/` using
- *     the names in SAMPLE_FILES and they transparently replace the synth for
- *     those cues. Missing files are ignored, so the game always has sound.
+ * Real recordings live in `public/assets/audio/` and are trimmed to short cues
+ * (~84 KB total). Anything missing falls back to procedural Web Audio synthesis,
+ * so the game always has sound even offline.
  *
- * No audio is bundled with the repo — see README for where to source clips and
- * what licence you need.
+ * Mobile-safe loading, in two phases:
+ *  1. `prefetch()` downloads the files as raw bytes. No AudioContext is created,
+ *     so this can run at page load without tripping autoplay policy.
+ *  2. `unlock()` runs on the first user gesture, creates the AudioContext and
+ *     decodes what has arrived. iOS Safari refuses to decode or play before this.
  */
 
 export type Cue =
   | 'autoHorn'
   | 'carHorn'
   | 'busHorn'
+  | 'carPass'
   | 'hit'
+  | 'food'
+  | 'coffee'
   | 'sprint'
-  | 'blessing'
   | 'curse'
   | 'coinLoss'
   | 'victory'
   | 'defeat';
 
-/** Filenames looked for under `public/assets/audio/`. */
-const SAMPLE_FILES: Record<Cue, string> = {
-  autoHorn: 'auto-horn.mp3',
-  carHorn: 'car-horn.mp3',
-  busHorn: 'bus-horn.mp3',
-  hit: 'hit.mp3',
-  sprint: 'sprint.mp3',
-  blessing: 'blessing.mp3',
-  curse: 'curse.mp3',
-  coinLoss: 'coin-loss.mp3',
-  victory: 'victory.mp3',
-  defeat: 'defeat.mp3',
-};
+/**
+ * Files looked for under `public/assets/audio/`. Cues absent here are always
+ * synthesised. Order matters: earlier entries are fetched first, so the horns
+ * you hear within the first few seconds land before the rest.
+ */
+const SAMPLE_FILES: readonly (readonly [Cue, string])[] = [
+  ['carHorn', 'car-horn.mp3'],
+  ['autoHorn', 'auto-horn.mp3'],
+  ['hit', 'hit.mp3'],
+  ['busHorn', 'bus-horn.mp3'],
+  ['carPass', 'car-pass.mp3'],
+  ['coffee', 'coffee.mp3'],
+  ['food', 'food.mp3'],
+];
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private enabled = true;
   private master: GainNode | null = null;
   private samples = new Map<Cue, AudioBuffer>();
+  /** Downloaded but not yet decoded — decoding needs an unlocked context. */
+  private pending = new Map<Cue, ArrayBuffer>();
+  private unlocked = false;
   /** Low rumble of the road, started with the first run. */
   private ambience: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
 
@@ -63,25 +69,48 @@ export class AudioManager {
   }
 
   /**
-   * Loads any real recordings the project ships with. Safe to call before the
-   * user has interacted: it only decodes, it does not play.
+   * Downloads the sample files as bytes. Creates no AudioContext, so it is safe
+   * to call during page load on mobile. Fetches run sequentially in priority
+   * order so the first horns are ready soonest on a slow connection.
    */
-  async loadSamples(baseUrl: string): Promise<void> {
-    const ctx = this.ensureContext();
-    await Promise.all(
-      (Object.keys(SAMPLE_FILES) as Cue[]).map(async (cue) => {
-        try {
-          const res = await fetch(`${baseUrl}assets/audio/${SAMPLE_FILES[cue]}`);
-          if (!res.ok) return;
-          const type = res.headers.get('content-type') ?? '';
-          // A dev server returns index.html for missing files; skip those.
-          if (type.includes('text/html')) return;
-          this.samples.set(cue, await ctx.decodeAudioData(await res.arrayBuffer()));
-        } catch {
-          // No file, bad file, or offline — the synth covers this cue.
-        }
-      })
-    );
+  async prefetch(baseUrl: string): Promise<void> {
+    for (const [cue, file] of SAMPLE_FILES) {
+      try {
+        const res = await fetch(`${baseUrl}assets/audio/${file}`);
+        if (!res.ok) continue;
+        // A dev server returns index.html for missing files; skip those.
+        if ((res.headers.get('content-type') ?? '').includes('text/html')) continue;
+        this.pending.set(cue, await res.arrayBuffer());
+        if (this.unlocked) void this.decodePending();
+      } catch {
+        // Missing, malformed or offline — the synth covers this cue.
+      }
+    }
+    if (this.unlocked) void this.decodePending();
+  }
+
+  /**
+   * Call from the first user gesture. Starts the AudioContext and decodes
+   * whatever has downloaded so far; later arrivals decode as they land.
+   */
+  unlock(): void {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    this.ensureContext();
+    void this.decodePending();
+  }
+
+  private async decodePending(): Promise<void> {
+    if (!this.ctx) return;
+    for (const [cue, bytes] of [...this.pending]) {
+      this.pending.delete(cue);
+      try {
+        // decodeAudioData detaches the buffer, so a failure cannot be retried.
+        this.samples.set(cue, await this.ctx.decodeAudioData(bytes));
+      } catch {
+        // Undecodable on this browser; that cue stays synthesised.
+      }
+    }
   }
 
   /** Plays a recorded sample if one was loaded. Returns false if there is none. */
@@ -218,6 +247,12 @@ export class AudioManager {
     this.noise(0.5, 0.045, 320);
   }
 
+  /** Whoosh of a vehicle passing close without connecting. */
+  playCarPass(): void {
+    if (this.playSample('carPass', 0.55, 0.95 + Math.random() * 0.14)) return;
+    this.noise(0.35, 0.05, 1200);
+  }
+
   playHit(): void {
     if (this.playSample('hit', 0.9)) return;
     this.noise(0.28, 0.35, 900);
@@ -230,8 +265,8 @@ export class AudioManager {
     this.noise(0.3, 0.05, 1800);
   }
 
-  playBlessing(): void {
-    if (this.playSample('blessing', 0.8)) return;
+  playBlessing(kind: 'biryani' | 'coffee' = 'coffee'): void {
+    if (this.playSample(kind === 'coffee' ? 'coffee' : 'food', 0.85)) return;
     // A little four-note lift, roughly a shehnai-ish flourish.
     [523, 622, 784, 1047].forEach((f, i) => this.tone('triangle', f, f, 0.26, 0.06, i * 0.09));
   }

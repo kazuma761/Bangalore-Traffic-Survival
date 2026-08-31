@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { lerp } from '../utils/math.ts';
+import { QUALITY } from '../core/Quality.ts';
 
 /**
  * Overhead chase camera. It sits high above Nitesh and leads slightly up-screen
@@ -12,7 +13,12 @@ export class TopDownCamera {
   private lead = 12;
 
   constructor() {
-    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 400);
+    this.camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.5,
+      QUALITY.drawDistance
+    );
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();

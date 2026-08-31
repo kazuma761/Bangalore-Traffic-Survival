@@ -24,8 +24,27 @@ export interface HitReport {
  * Autos hurt the wallet and the mind; cabs hurt and shove; buses end runs.
  */
 export class CollisionSystem {
-  update(nitesh: Nitesh, vehicles: Vehicle[]): HitReport[] {
+  /** Set when a vehicle tore past without connecting; Game plays a whoosh. */
+  nearMiss = false;
+  private nearMissCooldown = 0;
+
+  update(dt: number, nitesh: Nitesh, vehicles: Vehicle[]): HitReport[] {
     const hits: HitReport[] = [];
+    this.nearMiss = false;
+    if (this.nearMissCooldown > 0) this.nearMissCooldown -= dt;
+
+    // A close pass is anything sweeping just outside his own footprint.
+    if (this.nearMissCooldown <= 0) {
+      for (const v of vehicles) {
+        if (Math.abs(v.speed) < 8) continue;
+        if (v.overlapsCircle(nitesh.x, nitesh.z, nitesh.halfWidth + 2.2)) {
+          this.nearMiss = true;
+          this.nearMissCooldown = 1.1;
+          break;
+        }
+      }
+    }
+
     if (nitesh.isInvulnerable) return hits;
 
     for (const v of vehicles) {
