@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/GameConfig.ts';
 import { FoodPlate } from '../entities/FoodPlate.ts';
+import type { FoodKind } from '../entities/FoodPlate.ts';
 import type { Nitesh } from '../entities/Nitesh.ts';
 import type { RoadWorld } from '../world/RoadWorld.ts';
 import { randomRange } from '../utils/math.ts';
@@ -8,6 +9,7 @@ import { randomRange } from '../utils/math.ts';
 export interface FoodPickup {
   blessing: boolean;
   message: string;
+  kind: FoodKind;
   x: number;
   z: number;
 }
@@ -50,7 +52,7 @@ export class FoodSystem {
 
       if (!pickup && plate.overlapsCircle(nitesh.x, nitesh.z, nitesh.halfWidth)) {
         const outcome = plate.consume();
-        pickup = { ...outcome, x: plate.x, z: plate.z };
+        pickup = { ...outcome, kind: plate.kind, x: plate.x, z: plate.z };
 
         if (outcome.blessing) {
           nitesh.heal(CONFIG.food.blessingHealth);

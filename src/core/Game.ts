@@ -3,10 +3,12 @@ import { GameLoop } from './GameLoop.ts';
 import { InputManager } from './InputManager.ts';
 import { AudioManager } from './AudioManager.ts';
 import { CONFIG } from './GameConfig.ts';
+import { QUALITY } from './Quality.ts';
 import { eventBus } from './EventBus.ts';
 import {
   HONK_SOUNDS,
   LOSE_LINES,
+  POTHOLE_LINES,
   STRESS_LINES,
   WIN_LINES,
   randomLine,
@@ -21,6 +23,7 @@ import { HonkingSystem } from '../systems/HonkingSystem.ts';
 import { CollisionSystem } from '../systems/CollisionSystem.ts';
 import { BarricadeSystem } from '../systems/BarricadeSystem.ts';
 import { FoodSystem } from '../systems/FoodSystem.ts';
+import { PotholeSystem } from '../systems/PotholeSystem.ts';
 import { ProgressSystem } from '../systems/ProgressSystem.ts';
 
 import { TopDownCamera } from '../rendering/TopDownCamera.ts';
@@ -52,6 +55,7 @@ export class Game {
   private collisions = new CollisionSystem();
   private barricades!: BarricadeSystem;
   private food!: FoodSystem;
+  private potholes!: PotholeSystem;
   private progress!: ProgressSystem;
 
   private hud!: HUD;
@@ -66,9 +70,12 @@ export class Game {
   async init(): Promise<void> {
     this.container = document.getElementById('game-container')!;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: QUALITY.antialias,
+      powerPreference: 'high-performance',
+    });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.maxPixelRatio));
     this.renderer.setClearColor(0x9db8c9);
     this.container.insertBefore(this.renderer.domElement, this.container.firstChild);
     window.addEventListener('resize', () => {
@@ -84,8 +91,11 @@ export class Game {
     this.arrow = new GoalArrow(overlay, this.cam);
     this.story = new StoryScreen(overlay);
 
-    // Picks up any real recordings in public/assets/audio; falls back to synth.
-    void this.audio.loadSamples(import.meta.env.BASE_URL);
+    // Bytes download now; decoding waits for the first gesture (mobile policy).
+    void this.audio.prefetch(import.meta.env.BASE_URL);
+    for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+      window.addEventListener(ev, () => this.audio.unlock(), { once: true, passive: true });
+    }
 
     this.bindUI();
 
@@ -94,12 +104,24 @@ export class Game {
       () => this.render()
     );
     this.loop.start();
+
+    this.dismissBootScreen();
+  }
+
+  /** Fades out the static boot overlay once the engine is actually live. */
+  private dismissBootScreen(): void {
+    const boot = document.getElementById('boot-screen');
+    if (!boot) return;
+    boot.classList.add('done');
+    boot.addEventListener('transitionend', () => boot.remove(), { once: true });
+    // Belt and braces if the transition never fires (reduced motion, etc).
+    window.setTimeout(() => boot.remove(), 800);
   }
 
   private buildScene(): THREE.Scene {
     const scene = new THREE.Scene();
     // Hazy Bangalore afternoon.
-    scene.fog = new THREE.Fog(0x9db8c9, 90, 190);
+    scene.fog = new THREE.Fog(0x9db8c9, QUALITY.fogNear, QUALITY.fogFar);
     scene.add(new THREE.AmbientLight(0xfff3e0, 0.75));
 
     const sun = new THREE.DirectionalLight(0xfff3e0, 0.85);
@@ -125,7 +147,44 @@ export class Game {
 
   // ===== Run lifecycle =====
 
+  /**
+   * Building the road allocates several hundred meshes, which is a visible
+   * freeze on a phone. Show the overlay, let the browser paint two frames, then
+   * do the heavy work — so the tap always feels acknowledged.
+   */
   private startRun(): void {
+    document.getElementById('main-menu')!.style.display = 'none';
+    document.getElementById('game-over')!.style.display = 'none';
+    this.showBuilding(true);
+
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        this.buildRun();
+        this.showBuilding(false);
+      })
+    );
+  }
+
+  private showBuilding(visible: boolean): void {
+    let el = document.getElementById('building-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'building-overlay';
+      el.className = 'screen';
+      el.style.cssText =
+        'position:absolute;inset:0;z-index:120;display:flex;flex-direction:column;' +
+        'align-items:center;justify-content:center;gap:12px;' +
+        'font-family:system-ui,sans-serif;color:#fff;text-align:center;' +
+        'background:linear-gradient(150deg,#1b2735,#0f3460);';
+      el.innerHTML =
+        '<div style="font-size:20px;font-weight:800">Sarjapur Road, 6:40 PM</div>' +
+        '<div class="boot-track"><div class="boot-bar"></div></div>';
+      document.getElementById('ui-overlay')!.appendChild(el);
+    }
+    el.style.display = visible ? 'flex' : 'none';
+  }
+
+  private buildRun(): void {
     this.teardownRun();
 
     this.world = new RoadWorld(this.scene);
@@ -135,6 +194,7 @@ export class Game {
     this.traffic = new TrafficSystem(this.scene, this.world);
     this.barricades = new BarricadeSystem(this.scene, this.world);
     this.food = new FoodSystem(this.scene, this.world);
+    this.potholes = new PotholeSystem(this.scene, this.world, QUALITY.potholeDensity);
     this.progress = new ProgressSystem(this.world);
     this.honking.reset();
     this.input.reset();
@@ -143,8 +203,6 @@ export class Game {
     this.floaters.clear();
     this.floaters.spawn('Get home, Nitesh!', 0, this.world.startZ - 4, 'blessing', 2.2);
 
-    document.getElementById('main-menu')!.style.display = 'none';
-    document.getElementById('game-over')!.style.display = 'none';
     this.hud.show(true);
     this.arrow.show(true);
 
@@ -176,6 +234,7 @@ export class Game {
     this.traffic?.clear();
     this.barricades?.clear();
     this.food?.clear();
+    this.potholes?.clear();
     this.nitesh?.dispose();
     this.world?.dispose();
   }
@@ -254,7 +313,7 @@ export class Game {
     }
 
     // 4. Traffic collisions.
-    for (const hit of this.collisions.update(this.nitesh, this.traffic.vehicles)) {
+    for (const hit of this.collisions.update(dt, this.nitesh, this.traffic.vehicles)) {
       this.floaters.spawn(hit.label, hit.x, hit.z, 'damage', 1.3);
       if (hit.healthLost > 0) {
         this.floaters.spawn(`-${hit.healthLost} HP`, this.nitesh.x, this.nitesh.z, 'damage', 1.1);
@@ -272,20 +331,30 @@ export class Game {
       this.audio.playHit();
     }
 
-    // 5. Street food gamble.
+    if (this.collisions.nearMiss) this.audio.playCarPass();
+
+    // 5. Potholes — cheap damage that punishes sprinting blind.
+    const trip = this.potholes.update(this.nitesh);
+    if (trip) {
+      this.floaters.spawn(randomLine(POTHOLE_LINES), trip.x, trip.z, 'damage', 1.5);
+      this.floaters.spawn(`-${trip.damage} HP`, this.nitesh.x + 3, this.nitesh.z, 'damage', 1);
+      this.audio.playHit();
+    }
+
+    // 6. Street food gamble.
     const pickup = this.food.update(dt, this.nitesh);
     if (pickup) {
       this.floaters.spawn(pickup.message, pickup.x, pickup.z, pickup.blessing ? 'blessing' : 'curse', 2);
       if (pickup.blessing) {
         this.floaters.spawn(`+${CONFIG.food.blessingHealth} HP · Sanity restored`, pickup.x, pickup.z - 3, 'blessing', 1.8);
-        this.audio.playBlessing();
+        this.audio.playBlessing(pickup.kind);
       } else {
         this.floaters.spawn(`-${CONFIG.food.curseHealth} HP · Gastro Debuff`, pickup.x, pickup.z - 3, 'curse', 1.8);
         this.audio.playCurse();
       }
     }
 
-    // 6. HUD + navigation.
+    // 7. HUD + navigation.
     this.hud.update({
       health: this.nitesh.health,
       sanity: this.nitesh.sanity,
@@ -296,12 +365,13 @@ export class Game {
       metresRemaining: this.progress.metresRemaining,
       elapsed: this.progress.time,
       poisoned: this.nitesh.hasFoodPoisoning,
+      staggered: this.nitesh.isStaggered,
     });
     this.arrow.update(this.nitesh.x, this.nitesh.z, 0, this.world.goalZ, this.progress.metresRemaining);
 
     this.cam.follow(dt, this.nitesh.x, this.nitesh.z);
 
-    // 7. Win / lose.
+    // 8. Win / lose.
     if (this.progress.finished) {
       this.endRun(true, WIN_LINES.title, WIN_LINES.sub);
     } else if (this.nitesh.health <= 0) {

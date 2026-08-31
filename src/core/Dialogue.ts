@@ -57,6 +57,15 @@ export const FOOD_CURSE_LINES = [
   'Bejaar! Tummy upset.',
 ] as const;
 
+/** Stepping into a pothole. Everyone has an opinion about the roads. */
+export const POTHOLE_LINES = [
+  'Gundi! Kaalu murkondide!',
+  'Ayyo, road-a ee gundi-na?',
+  'BBMP, swalpa nodi!',
+  'Pothole! Ankle gone.',
+  'Yaake ee road hinge ide?',
+] as const;
+
 /** Shown while the noise meter is pinned. */
 export const STRESS_LINES = [
   'TALE KETTOYTU! Get out of the traffic!',

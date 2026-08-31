@@ -17,6 +17,7 @@ export interface HUDState {
   metresRemaining: number;
   elapsed: number;
   poisoned: boolean;
+  staggered: boolean;
 }
 
 /**
@@ -144,6 +145,7 @@ export class HUD {
 
     const lines: string[] = [];
     if (maxed) lines.push('<span style="color:#ff1744">TOO MUCH HONKING — GET OUT OF THE TRAFFIC!</span>');
+    if (s.staggered) lines.push('<span style="color:#ffab40">🕳️ Twisted ankle — gundi!</span>');
     if (s.poisoned) lines.push('<span style="color:#66bb6a">🤢 FOOD POISONING — hotte kettoytu, half speed</span>');
     this.statusEl.innerHTML = lines.join('<br>');
   }

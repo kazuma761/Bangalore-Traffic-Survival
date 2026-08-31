@@ -17,6 +17,8 @@ export class Nitesh extends Entity {
   private cooldownTimer = 0;
   /** Food-poisoning timer from bad street food. */
   private poisonTimer = 0;
+  /** Limp timer from turning an ankle in a pothole. */
+  private staggerTimer = 0;
   /** Knockback impulse left over from a cab hit. */
   private knockTimer = 0;
   private knockDirX = 0;
@@ -81,6 +83,9 @@ export class Nitesh extends Entity {
   get hasFoodPoisoning(): boolean {
     return this.poisonTimer > 0;
   }
+  get isStaggered(): boolean {
+    return this.staggerTimer > 0;
+  }
   get isInvulnerable(): boolean {
     return this.invulnTimer > 0;
   }
@@ -138,6 +143,11 @@ export class Nitesh extends Entity {
     return taken;
   }
 
+  /** Turned an ankle in a pothole: brief heavy slow, stacks with poisoning. */
+  stagger(): void {
+    this.staggerTimer = CONFIG.pothole.stagger;
+  }
+
   applyFoodPoisoning(): void {
     this.poisonTimer = CONFIG.nitesh.poisonDuration;
   }
@@ -161,6 +171,7 @@ export class Nitesh extends Entity {
     let speed = CONFIG.nitesh.baseSpeed;
     if (this.sprintTimer > 0) speed *= CONFIG.nitesh.sprintMultiplier;
     if (this.poisonTimer > 0) speed *= CONFIG.nitesh.poisonMultiplier;
+    if (this.staggerTimer > 0) speed *= CONFIG.pothole.speedMultiplier;
 
     let vx = moveX * speed;
     let vz = moveZ * speed;
@@ -193,6 +204,7 @@ export class Nitesh extends Entity {
     }
 
     if (this.poisonTimer > 0) this.poisonTimer -= dt;
+    if (this.staggerTimer > 0) this.staggerTimer -= dt;
     if (this.knockTimer > 0) this.knockTimer -= dt;
     if (this.invulnTimer > 0) this.invulnTimer -= dt;
 
@@ -215,6 +227,7 @@ export class Nitesh extends Entity {
     this.sprintTimer = 0;
     this.cooldownTimer = 0;
     this.poisonTimer = 0;
+    this.staggerTimer = 0;
     this.knockTimer = 0;
     this.invulnTimer = 0;
   }
