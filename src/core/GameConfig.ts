@@ -62,6 +62,8 @@ export const CONFIG = {
     cabsPerWave: [2, 3] as const,
     autoChance: 0.4,
     busChance: 0.34,
+    /** Buses stay away for this much of the run, then never stop coming. */
+    busAfterProgress: 0.04,
     /** Vehicles spawn this far ahead of Nitesh and despawn this far behind. */
     spawnAhead: 90,
     despawnBehind: 45,

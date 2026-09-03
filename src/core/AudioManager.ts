@@ -355,4 +355,21 @@ export class AudioManager {
     }
     return this.enabled;
   }
+
+  /**
+   * Silences everything while the tab is in the background. On a phone that is
+   * not optional politeness: the ambience loop otherwise keeps running (and
+   * drawing battery) behind whatever the player switched to, and iOS will kill
+   * a context it considers misbehaving. Suspending the context is far cheaper
+   * than tearing the graph down and rebuilding it on the way back.
+   */
+  suspend(): void {
+    if (this.ctx?.state === 'running') void this.ctx.suspend();
+  }
+
+  /** Counterpart to suspend(). Respects the mute button and the unlock gate. */
+  resume(): void {
+    if (!this.enabled || !this.unlocked) return;
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
+  }
 }

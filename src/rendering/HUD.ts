@@ -21,9 +21,57 @@ export interface HUDState {
 }
 
 /**
- * The HUD builds and owns every one of its own elements. Nothing else in the
- * game touches its DOM - callers just hand it a snapshot of the run each frame.
+ * The HUD builds and owns every one of its own elements, including its
+ * stylesheet. Nothing else in the game touches its DOM — callers just hand it a
+ * snapshot of the run each frame.
+ *
+ * Layout is class-driven rather than inline so a media query can shrink it: at
+ * the desktop sizes the two columns needed ~380 px, which overlapped into an
+ * unreadable mess on a 360 px phone. The narrow rules thin the bars, drop the
+ * label text down a size, and lift the status line clear of the thumbstick.
  */
+
+const CSS = `
+.hud-root { position:absolute; inset:0; pointer-events:none; z-index:13; display:none;
+  font-family:system-ui,-apple-system,sans-serif; color:#fff; }
+.hud-left { position:absolute; top:calc(14px + env(safe-area-inset-top));
+  left:calc(16px + env(safe-area-inset-left)); width:230px; }
+.hud-right { position:absolute; top:calc(14px + env(safe-area-inset-top));
+  right:calc(16px + env(safe-area-inset-right)); text-align:right;
+  text-shadow:0 2px 6px rgba(0,0,0,0.75); }
+.hud-distance { font-size:30px; font-weight:900; letter-spacing:-0.5px; }
+.hud-goal { font-size:12px; opacity:0.75; margin-bottom:8px; }
+.hud-wallet { font-size:19px; font-weight:700; color:#ffd54f; }
+.hud-timer { font-size:14px; opacity:0.8; margin-top:4px; }
+.hud-bar-wrap { margin-bottom:9px; }
+.hud-bar-head { display:flex; justify-content:space-between; font-size:11px; font-weight:700;
+  letter-spacing:0.6px; text-transform:uppercase; opacity:0.9; margin-bottom:3px;
+  text-shadow:0 1px 3px rgba(0,0,0,0.9); }
+.hud-bar-track { height:11px; border-radius:6px; overflow:hidden;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.12); }
+.hud-bar-fill { height:100%; width:100%; border-radius:6px; transition:width 0.08s linear; }
+.hud-status { position:absolute; bottom:calc(86px + env(safe-area-inset-bottom)); left:50%;
+  transform:translateX(-50%); font-size:16px; font-weight:800; text-align:center;
+  line-height:1.5; text-shadow:0 2px 6px rgba(0,0,0,0.85); width:min(92vw,560px); }
+
+@media (max-width: 620px), (pointer: coarse) {
+  .hud-left { width:min(46vw,190px); top:calc(10px + env(safe-area-inset-top));
+    left:calc(10px + env(safe-area-inset-left)); }
+  .hud-right { top:calc(10px + env(safe-area-inset-top));
+    right:calc(10px + env(safe-area-inset-right)); }
+  .hud-distance { font-size:22px; }
+  .hud-goal { font-size:10px; margin-bottom:5px; max-width:38vw; margin-left:auto; }
+  .hud-wallet { font-size:15px; }
+  .hud-timer { font-size:12px; margin-top:2px; }
+  .hud-bar-wrap { margin-bottom:6px; }
+  .hud-bar-head { font-size:9px; letter-spacing:0.3px; margin-bottom:2px; }
+  .hud-bar-track { height:8px; border-radius:4px; }
+  .hud-bar-fill { border-radius:4px; }
+  /* Clear of the sprint pad and the thumbstick. */
+  .hud-status { bottom:calc(136px + env(safe-area-inset-bottom)); font-size:13px; }
+}
+`;
+
 export class HUD {
   private root: HTMLDivElement;
   private health: Bar;
@@ -36,63 +84,61 @@ export class HUD {
   private statusEl: HTMLDivElement;
 
   constructor(container: HTMLElement) {
+    if (!document.getElementById('hud-styles')) {
+      const style = document.createElement('style');
+      style.id = 'hud-styles';
+      style.textContent = CSS;
+      document.head.appendChild(style);
+    }
+
     this.root = document.createElement('div');
-    this.root.style.cssText =
-      'position:absolute;inset:0;pointer-events:none;z-index:13;display:none;' +
-      'font-family:system-ui,-apple-system,sans-serif;color:#fff;';
+    this.root.className = 'hud-root';
     container.appendChild(this.root);
 
     // Left column: the four meters.
     const left = document.createElement('div');
-    left.style.cssText = 'position:absolute;top:14px;left:16px;width:230px;';
+    left.className = 'hud-left';
     this.root.appendChild(left);
 
     this.health = this.makeBar(left, 'Health', '#ff5252', '#5d1414');
     this.sanity = this.makeBar(left, 'Sanity', '#ba68c8', '#3b1a44');
-    this.stress = this.makeBar(left, 'Ambient Noise Stress', '#ffa726', '#4d2d00');
-    this.sprint = this.makeBar(left, 'Sprint Energy', '#40c4ff', '#0d3548');
+    this.stress = this.makeBar(left, 'Noise Stress', '#ffa726', '#4d2d00');
+    this.sprint = this.makeBar(left, 'Sprint', '#40c4ff', '#0d3548');
 
     // Right column: distance, wallet, timer.
     const right = document.createElement('div');
-    right.style.cssText =
-      'position:absolute;top:14px;right:16px;text-align:right;' +
-      'text-shadow:0 2px 6px rgba(0,0,0,0.75);';
+    right.className = 'hud-right';
     this.root.appendChild(right);
 
     this.distanceEl = document.createElement('div');
-    this.distanceEl.style.cssText = 'font-size:30px;font-weight:900;letter-spacing:-0.5px;';
+    this.distanceEl.className = 'hud-distance';
     right.appendChild(this.distanceEl);
 
     const goalNote = document.createElement('div');
     goalNote.textContent = 'to HSR Layout Entry Gate';
-    goalNote.style.cssText = 'font-size:12px;opacity:0.75;margin-bottom:8px;';
+    goalNote.className = 'hud-goal';
     right.appendChild(goalNote);
 
     this.walletEl = document.createElement('div');
-    this.walletEl.style.cssText = 'font-size:19px;font-weight:700;color:#ffd54f;';
+    this.walletEl.className = 'hud-wallet';
     right.appendChild(this.walletEl);
 
     this.timerEl = document.createElement('div');
-    this.timerEl.style.cssText = 'font-size:14px;opacity:0.8;margin-top:4px;';
+    this.timerEl.className = 'hud-timer';
     right.appendChild(this.timerEl);
 
     // Centre-bottom status line for debuffs and warnings.
     this.statusEl = document.createElement('div');
-    this.statusEl.style.cssText =
-      'position:absolute;bottom:86px;left:50%;transform:translateX(-50%);font-size:16px;' +
-      'font-weight:800;text-shadow:0 2px 6px rgba(0,0,0,0.85);text-align:center;line-height:1.5;';
+    this.statusEl.className = 'hud-status';
     this.root.appendChild(this.statusEl);
   }
 
   private makeBar(parent: HTMLElement, label: string, color: string, track: string): Bar {
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin-bottom:9px;';
+    wrap.className = 'hud-bar-wrap';
 
     const head = document.createElement('div');
-    head.style.cssText =
-      'display:flex;justify-content:space-between;font-size:11px;font-weight:700;' +
-      'letter-spacing:0.6px;text-transform:uppercase;opacity:0.9;margin-bottom:3px;' +
-      'text-shadow:0 1px 3px rgba(0,0,0,0.9);';
+    head.className = 'hud-bar-head';
 
     const name = document.createElement('span');
     name.textContent = label;
@@ -100,14 +146,12 @@ export class HUD {
     head.append(name, value);
 
     const bar = document.createElement('div');
-    bar.style.cssText =
-      `height:11px;border-radius:6px;background:${track};overflow:hidden;` +
-      'box-shadow:inset 0 1px 3px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.12);';
+    bar.className = 'hud-bar-track';
+    bar.style.background = track;
 
     const fill = document.createElement('div');
-    fill.style.cssText =
-      `height:100%;width:100%;background:${color};border-radius:6px;` +
-      'transition:width 0.08s linear;';
+    fill.className = 'hud-bar-fill';
+    fill.style.background = color;
     bar.appendChild(fill);
 
     wrap.append(head, bar);

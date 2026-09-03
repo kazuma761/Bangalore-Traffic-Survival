@@ -31,6 +31,7 @@ import { FloatingText } from '../rendering/FloatingText.ts';
 import { GoalArrow } from '../rendering/GoalArrow.ts';
 import { HUD } from '../rendering/HUD.ts';
 import { StoryScreen } from '../rendering/StoryScreen.ts';
+import { TouchControls, isTouchDevice } from '../rendering/TouchControls.ts';
 
 type Phase = 'menu' | 'running' | 'over';
 
@@ -62,6 +63,8 @@ export class Game {
   private floaters!: FloatingText;
   private arrow!: GoalArrow;
   private story!: StoryScreen;
+  /** Null on a mouse-and-keyboard machine; there are no pads to draw there. */
+  private touch: TouchControls | null = null;
   /** Throttles the on-screen stress warning so it does not flicker. */
   private stressWarnTimer = 0;
 
@@ -74,30 +77,30 @@ export class Game {
       antialias: QUALITY.antialias,
       powerPreference: 'high-performance',
     });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.maxPixelRatio));
     this.renderer.setClearColor(0x9db8c9);
     this.container.insertBefore(this.renderer.domElement, this.container.firstChild);
-    window.addEventListener('resize', () => {
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 
     this.cam = new TopDownCamera();
     this.scene = this.buildScene();
+    this.applyViewport();
+    window.__boot?.set(0.75, 'Waking up the traffic\u2026');
 
     const overlay = document.getElementById('ui-overlay') as HTMLElement;
     this.hud = new HUD(overlay);
     this.floaters = new FloatingText(overlay, this.cam);
     this.arrow = new GoalArrow(overlay, this.cam);
     this.story = new StoryScreen(overlay);
+    if (isTouchDevice()) this.touch = new TouchControls(overlay, this.input);
 
     // Bytes download now; decoding waits for the first gesture (mobile policy).
     void this.audio.prefetch(import.meta.env.BASE_URL);
-    for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+    for (const ev of ['pointerdown', 'keydown', 'touchstart', 'click']) {
       window.addEventListener(ev, () => this.audio.unlock(), { once: true, passive: true });
     }
 
     this.bindUI();
+    this.bindViewport();
+    this.bindLifecycle();
 
     this.loop = new GameLoop(
       (dt) => this.update(dt),
@@ -105,7 +108,73 @@ export class Game {
     );
     this.loop.start();
 
+    window.__boot?.set(1, 'Ready \u2014 mane serbeku!');
     this.dismissBootScreen();
+  }
+
+  /**
+   * Single source of truth for viewport size: the renderer and the camera are
+   * resized together so the two can never disagree about the aspect ratio.
+   * The pixel ratio is re-read each time because it changes when a window moves
+   * between displays, or when a phone browser zooms.
+   */
+  private applyViewport(): void {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.maxPixelRatio));
+    this.renderer.setSize(w, h);
+    this.cam.applyViewport(w, h);
+  }
+
+  /**
+   * Mobile browsers fire `resize` on every URL-bar slide, so the actual work is
+   * coalesced into one animation frame. `visualViewport` is the event that
+   * reports the genuinely usable area once browser chrome is in play.
+   */
+  private bindViewport(): void {
+    let queued = false;
+    const schedule = (): void => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        this.applyViewport();
+      });
+    };
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+    window.visualViewport?.addEventListener('resize', schedule);
+  }
+
+  /**
+   * Phone-specific survival. A backgrounded tab has rAF stopped for it, and a
+   * phone under memory pressure will drop the WebGL context outright. Both
+   * leave the game looking broken unless they are handled explicitly.
+   */
+  private bindLifecycle(): void {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Stop before the browser does, so the loop resumes from a clean clock
+        // instead of trying to catch up on the whole away-time.
+        this.loop.stop();
+        this.input.reset();
+        this.audio.suspend();
+      } else {
+        this.audio.resume();
+        this.loop.resume();
+      }
+    });
+
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener('webglcontextlost', (e) => {
+      // Without preventDefault the context can never be restored.
+      e.preventDefault();
+      this.loop.stop();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.applyViewport();
+      this.loop.resume();
+    });
   }
 
   /** Fades out the static boot overlay once the engine is actually live. */
@@ -203,8 +272,14 @@ export class Game {
     this.floaters.clear();
     this.floaters.spawn('Get home, Nitesh!', 0, this.world.startZ - 4, 'blessing', 2.2);
 
+    // Compile every shader the new world needs while the overlay is still up.
+    // Left to the first rendered frame this lands as a visible hitch on mobile,
+    // right as the player takes their first step into traffic.
+    this.renderer.compile(this.scene, this.cam.camera);
+
     this.hud.show(true);
     this.arrow.show(true);
+    this.touch?.show(true);
 
     this.stressWarnTimer = 0;
     this.audio.startAmbience();
@@ -243,6 +318,7 @@ export class Game {
     this.phase = 'over';
     this.hud.show(false);
     this.arrow.show(false);
+    this.touch?.show(false);
 
     if (won) this.audio.playVictory();
     else this.audio.playDefeat();
